@@ -1,1 +1,1 @@
-# Question-Module
+# Diagram detection
