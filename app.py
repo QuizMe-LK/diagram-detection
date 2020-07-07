@@ -5,9 +5,13 @@ app = Flask(__name__)
 
 @app.route('/detectDiagram', methods=['POST'])
 def post_detectAndApplyResutls():
+    # print(request.json)
+    # return jsonify({'sucess': True})
+
     if('authectication' == request.json['code']):
-        detector.detectDiagram()
-        return jsonify({'sucess': True})
+        res = detector.detectDiagram(request.json['imageString'])
+        # return res
+        return jsonify({'sucess': True, 'data': res})
 
 
 if __name__ == "__main__":

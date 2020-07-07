@@ -1,6 +1,9 @@
 import cv2
 import numpy as np
+import io
 import urllib.request
+import base64
+from PIL import Image
 
 
 def url_to_image(url):
@@ -12,66 +15,77 @@ def url_to_image(url):
     # return the image
     return image
 
+def stringToImage(base64_string):
+    imgdata = base64.b64decode(base64_string)
+    np_data = np.fromstring(imgdata,np.uint8)
+    img = cv2.imdecode(np_data, cv2.IMREAD_COLOR)
+    return img
 
-# Load image, grayscale, Otsu's threshold
-image = url_to_image(
-    'https://res.cloudinary.com/cascadia/image/upload/v1590943353/QuizMe/Images/index_o5zjrt.png')
-# image = cv2.imread('test.png')
-# image = cv2.imread('test2.png')
-# image = cv2.imread('index1.jpg')
-original = image.copy()
+    # return Image.open(io.BytesIO(imgdata))
 
-gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-thresh = cv2.threshold(
-    gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+def detectDiagram(imgstring):
+    # Load image, grayscale, Otsu's threshold
+    image = stringToImage(imgstring.split(';')[1].split(',')[1])
+    # print()
+    # image = url_to_image(
+    #     'https://res.cloudinary.com/cascadia/image/upload/v1590943353/QuizMe/Images/index_o5zjrt.png')
+    # image = cv2.imread('test.png')
+    # image = cv2.imread('test2.png')
+    # image = cv2.imread('images/index1.jpg')
+    original = image.copy()
 
-# # Dilate with horizontal kernel
-# # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20,10))
-kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 2))
-dilate = cv2.dilate(thresh, kernel, iterations=2)
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    thresh = cv2.threshold(
+        gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
 
-# Find contours and remove non-diagram contours
-# contours, hierarchy = cv2.findContours(thresh,
-#     cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-cnts = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+    # # Dilate with horizontal kernel
+    # # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20,10))
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 2))
+    dilate = cv2.dilate(thresh, kernel, iterations=2)
 
-# Iterate through diagram contours and form single bounding box
-# boxes = []
-# cnts = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-# cnts = cnts[0] if len(cnts) == 2 else cnts[1]
-# for c in cnts:
-#     x, y, w, h = cv2.boundingRect(c)
-#     area = cv2.contourArea(c)
-#     if w/h > 2 and area > 10000:
-#         print("found")
-#         boxes.append([x, y, x+w, y+h])
-#         cv2.drawContours(thresh, [c], -1, (0, 0, 0), -1)
+    # Find contours and remove non-diagram contours
+    # contours, hierarchy = cv2.findContours(thresh,
+    #     cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cnts[0] if len(cnts) == 2 else cnts[1]
 
-boxes = []
-cnts = cv2.findContours(dilate, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-cnts = cnts[0] if len(cnts) == 2 else cnts[1]
-for c in cnts:
-    x, y, w, h = cv2.boundingRect(c)
-    area = cv2.contourArea(c)
-    if w/h > 2 and area > 10000:
-        print("found")
-        boxes.append([x, y, x+w, y+h])
-        cv2.drawContours(thresh, [c], -1, (0, 0, 0), -1)
+    # Iterate through diagram contours and form single bounding box
+    # boxes = []
+    # cnts = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+    # for c in cnts:
+    #     x, y, w, h = cv2.boundingRect(c)
+    #     area = cv2.contourArea(c)
+    #     if w/h > 2 and area > 10000:
+    #         print("found")
+    #         boxes.append([x, y, x+w, y+h])
+    #         cv2.drawContours(thresh, [c], -1, (0, 0, 0), -1)
+
+    boxes = []
+    cnts = cv2.findContours(dilate, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+    for c in cnts:
+        x, y, w, h = cv2.boundingRect(c)
+        area = cv2.contourArea(c)
+        if w/h > 2 and area > 10000:
+            print("found")
+            boxes.append([x, y, x+w, y+h])
+            cv2.drawContours(thresh, [c], -1, (0, 0, 0), -1)
 
 
-if(boxes):
-    boxes = np.asarray(boxes)
-    print('Diagram found', boxes.shape)
-    x = np.min(boxes[:, 0])
-    y = np.min(boxes[:, 1])
-    w = np.max(boxes[:, 2]) - x
-    h = np.max(boxes[:, 3]) - y
-    print(x, y, w, h)
-    # # Extract ROI
-cv2.rectangle(image, (x, y), (x + w, y + h), (36, 255, 12), 3)
-ROI = original[y:y+h, x:x+w]
+    if(boxes):
+        boxes = np.asarray(boxes)
+        print('Diagram found', boxes.shape)
+        x = np.min(boxes[:, 0])
+        y = np.min(boxes[:, 1])
+        w = np.max(boxes[:, 2]) - x
+        h = np.max(boxes[:, 3]) - y
 
+        # # Extract ROI
+    cv2.rectangle(image, (x, y), (x + w, y + h), (36, 255, 12), 3)
+    ROI = original[y:y+h, x:x+w]
+    print({"X":x,"Y":y,"W":w,"H":h})
+    return {"x":int(x),"y":int(y),"w":int(w),"h":int(h)}
 # # cv2.imshow('image', gray)
 # cv2.imshow('thresh', thresh)
 # cv2.imshow('dilate', dilate)
